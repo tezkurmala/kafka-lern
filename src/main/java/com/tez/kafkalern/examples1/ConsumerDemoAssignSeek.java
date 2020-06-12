@@ -4,6 +4,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,43 +13,55 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Properties;
 
-public class ConsumerDemoGroups {
-    //No change in code when compared to ConsumerDemo
-    //It is just that new group would be able to read all messages again from the topic
-    //Launch multiple instances of this program and observe how consumers that are of same group
-    // re-balance and sign up for responsibility on exclusive partitions.
-    //See with two consumers and then three consumers and then back to two again
-    //Use ProducerDemoWithKeys to populate data
-    //Observe that a consumer signed up for partition 0 (on re-balancing) would only get messages of partition 0
-    //Observe that a consumer signed up for partition 2 (on re-balancing) would only get messages of partition 2
-    //Observe that a consumer signed up for partition 0 and 1 (on re-balancing) would only get messages of partition 0 and 1
+public class ConsumerDemoAssignSeek {
+    //No group
+    //No subscription
+    //We tell not just the topic but assign a specific partition manually
+    //We also tell to read from a specific offset in that partition
+    //Granular control
 
     public static void main(String[] args) {
-        Logger logger = LoggerFactory.getLogger(ConsumerDemoGroups.class.getName());
+        Logger logger = LoggerFactory.getLogger(ConsumerDemoAssignSeek.class.getName());
         String bootStrapServers = "127.0.0.1:9092";
+        String topic = "first_topic";
         Properties properties = new Properties();
         //https://kafka.apache.org/documentation/#consumerconfigs
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootStrapServers);
         properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        String groupId = "my-fifth-application";
-        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"); //or latest
 
         //create consumer
         KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(properties);
-        //subscribe consumer to topic
-        consumer.subscribe(Arrays.asList("first_topic"));
+
+        //assign - reads only from partition 0 of given topic
+        TopicPartition partitioToReadFrom = new TopicPartition(topic, 0);
+        consumer.assign(Arrays.asList( partitioToReadFrom));
+
+        //seek - read only from a given offset 15 in partition 0
+        //If 15 offset is not available in the partition, it would read from offset 0 in that partition
+        long offsetToReadFrom = 15L;
+        consumer.seek(partitioToReadFrom, offsetToReadFrom);
+
+        int numberOfMessagesToRead = 5;
+        boolean keepOnReading = true;
+        int numberOfMessagesReadSoFar = 0;
         //poll for new data
-        while(true) {
+        while (keepOnReading) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-            for(ConsumerRecord<String, String> record : records) {
+            for (ConsumerRecord<String, String> record : records) {
+                numberOfMessagesReadSoFar++;
                 logger.info("Key: " + record.key() + "\n" +
                         "Partition: " + record.partition() + "\n" +
                         "Offset: " + record.offset() + "\n" +
                         "Topic: " + record.topic() + "\n" +
                         "Message: " + record.value());
+                if (numberOfMessagesReadSoFar >= numberOfMessagesToRead) {
+                    keepOnReading = false;
+                    break;
+                }
             }
         }
+        logger.info("Exiting the application!!");
     }
 }

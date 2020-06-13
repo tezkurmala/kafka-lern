@@ -14,6 +14,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.omg.CORBA.INTERNAL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,6 +86,11 @@ public class TwitterProducer {
         properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
         properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
 
+        //high throughput producer
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32*1024)); //32 KB batch size
+
         //create the producer
         KafkaProducer<String, String> producer = new KafkaProducer<String, String>(properties);
         return producer;
@@ -95,8 +101,8 @@ public class TwitterProducer {
     String token = "758878868560228352-kqf7R3z1KG2j1H2agqla0CL2MN2rkxO";
     String secret = "dAdLTLeMzLy3vjHDnNwD0AwVso62K1aPsnGTO84RC0YPo";
     //List<String> terms = Lists.newArrayList("bitcoin");
-    List<String> terms = Lists.newArrayList("kafka");
-
+    //List<String> terms = Lists.newArrayList("kafka"); //search words for relevant tweets
+    List<String> terms = Lists.newArrayList("bitcoin", "usa", "politics", "sport", "soccer");
     private Client createTwitterClient(BlockingQueue<String> msgQueue) {
         //https://github.com/twitter/hbc
         /** Declare the host you want to connect to, the endpoint, and authentication (basic auth or oauth) */

@@ -1,4 +1,4 @@
-package com.tez.kafkalern.examples1;
+package tez.kafkalern.examples1;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;

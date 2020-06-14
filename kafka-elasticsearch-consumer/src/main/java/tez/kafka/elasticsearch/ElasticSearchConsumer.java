@@ -12,6 +12,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -62,6 +64,11 @@ public class ElasticSearchConsumer {
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"); //or latest
 
+        //Disable consumer autocommit of offsets
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        //Max records to retrieve when poll() is done
+        properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "10");
+
         //create consumer
         KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(properties);
         //subscribe consumer to topic
@@ -77,6 +84,9 @@ public class ElasticSearchConsumer {
         try {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                int recordsCountFromPoll = records.count();
+                logger.info("Received " + recordsCountFromPoll + " records on poll()");
+                BulkRequest bulkRequest = new BulkRequest();
                 for (ConsumerRecord<String, String> record : records) {
                     //IndexRequest indexRequest = new IndexRequest("twitter", "tweets")
                     //        .source(record.value(), XContentType.JSON);
@@ -93,9 +103,23 @@ public class ElasticSearchConsumer {
                     //It will help elastic search do a PUT operation instead of POST and avoid duplicates insertion.
                     IndexRequest indexRequest = new IndexRequest("twitter", "tweets", uniqueIdOfConsumingRecord)
                       .source(record.value(), XContentType.JSON);
-                    IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                    String id = indexResponse.getId();
-                    logger.info(id);
+                    bulkRequest.add(indexRequest); //Adding to bulk request to make faster elasticsearch consumption
+
+                    //Following not required when doing bulk request. Following is one after the other request.
+                    //IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
+                    //String id = indexResponse.getId();
+                    //logger.info(id);
+                    //try {
+                    //    Thread.sleep(1000);
+                    //} catch (InterruptedException e) {
+                    //    e.printStackTrace();
+                    //}
+                }
+                if (recordsCountFromPoll > 0) {
+                    BulkResponse bulkItemResponses = client.bulk(bulkRequest, RequestOptions.DEFAULT);
+                    logger.info("Committing the offsets");
+                    consumer.commitSync(); //committing offsets after the for loop - processing records
+                    logger.info("Committed offsets");
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {

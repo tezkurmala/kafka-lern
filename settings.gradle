@@ -2,4 +2,5 @@ rootProject.name = 'kafkalern'
 include 'kafka-basics'
 include 'kafka-twitter-producer'
 include 'kafka-elasticsearch-consumer'
+include 'kafka-streams-filter-tweets'
 

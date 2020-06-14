@@ -66,6 +66,11 @@ public class ElasticSearchConsumer {
 
         //Disable consumer autocommit of offsets
         properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        //To check offsets state for kafka-elasticsearch consumer group
+        //kafka-consumer-groups --bootstrap-server localhost:9092 --group kafka-elasticsearch --describe
+        //To reset offsets
+        //kafka-consumer-groups --bootstrap-server localhost:9092 --group kafka-elasticsearch --reset-offsets --execute --to-earliest --topic teitter_tweets
+
         //Max records to retrieve when poll() is done
         properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "10");
 
